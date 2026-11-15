@@ -1259,6 +1259,7 @@
   }
   function showScreen(id) {
     for (const s of ['titleScreen', 'pauseScreen', 'overScreen']) $(s).classList.toggle('hidden', s !== id);
+    $('exitBtn').classList.toggle('hidden', id === 'titleScreen');
   }
 
   function buildBestiary() {
@@ -1296,6 +1297,18 @@
     showScreen(null);
     newGame();
   }
+  function exitToMenu() {
+    if (game.state === 'title') return;
+    parseMap();
+    decalList = []; redrawDecals();
+    particles = [];
+    resetActors();
+    // attract mode: the horde wanders the yard behind the title card
+    zombies.forEach(z => { if (z.state === 'house') z.state = 'leaving'; });
+    game.banner = null; game.flash = 0; game.shake = 0; game.dread = 0;
+    setState('title');
+    showScreen('titleScreen');
+  }
   function togglePause() {
     if (game.state === 'play' || game.state === 'ready') { game.prevState = game.state; setState('paused', game.stateTimer); showScreen('pauseScreen'); }
     else if (game.state === 'paused') { showScreen(null); setState(game.prevState, game.stateTimer); }
@@ -1305,6 +1318,7 @@
     if (KEYMAP[e.key]) { e.preventDefault(); setDir(KEYMAP[e.key]); return; }
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     if (e.key === 'm' || e.key === 'M') toggleMute();
+    if (e.key === 'q' || e.key === 'Q') exitToMenu();
     if ((e.key === 'Enter' || e.key === ' ') && (game.state === 'title' || game.state === 'over')) { e.preventDefault(); startGame(); }
   });
   function toggleMute() { Sound.init(); Sound.setMuted(!Sound.muted); $('muteBtn').classList.toggle('muted', Sound.muted); }
@@ -1317,6 +1331,9 @@
   $('startBtn').addEventListener('click', startGame);
   $('againBtn').addEventListener('click', startGame);
   $('resumeBtn').addEventListener('click', togglePause);
+  $('exitBtn').addEventListener('click', exitToMenu);
+  $('menuBtn').addEventListener('click', exitToMenu);
+  $('overMenuBtn').addEventListener('click', exitToMenu);
   document.querySelectorAll('#dpad button').forEach(b => {
     b.addEventListener('pointerdown', e => { e.preventDefault(); setDir(b.dataset.dir); });
   });
@@ -1355,6 +1372,7 @@
     for (let i = 0; i < 9; i++) fogBlobs.push({ x: rand(0, W), y: rand(0, H), r: rand(90, 200), vx: rand(-12, 12), a: rand(.03, .07) });
     sizeCanvases();
     buildBestiary();
+    $('exitBtn').classList.add('hidden');
     updateHud();
     let resizeT;
     window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(sizeCanvases, 150); });

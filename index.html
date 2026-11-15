@@ -31,6 +31,9 @@
         <svg class="ico-on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <svg class="ico-off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
+      <button class="icon-btn" id="exitBtn" aria-label="Exit to main menu" title="Exit to main menu">
+        <svg viewBox="0 0 24 24"><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M14 8l4 4-4 4M18 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <button class="icon-btn" id="pauseBtn" aria-label="Pause" title="Pause (P)">
         <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
       </button>
@@ -48,9 +51,10 @@
           <p class="eyebrow">A survival maze for one</p>
           <h1 class="logo" data-text="Grave Run">Grave Run</h1>
           <p class="tagline">Night has fallen over Ashgrove Cemetery. Gather every soul shard, light the flares, and do not let them touch you.</p>
+          <p class="section-label">Know your enemy — they all hunt you at once</p>
           <div class="bestiary" id="bestiary"></div>
           <button class="cta" id="startBtn"><span>Enter the graveyard</span></button>
-          <p class="controls"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>WASD</kbd> move · <kbd>P</kbd> pause · <kbd>M</kbd> mute · swipe on mobile</p>
+          <p class="controls"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>WASD</kbd> move · <kbd>P</kbd> pause · <kbd>Q</kbd> menu · <kbd>M</kbd> mute · swipe on mobile</p>
         </div>
       </section>
 
@@ -58,7 +62,10 @@
         <div class="screen-inner">
           <h2 class="logo small" data-text="Paused">Paused</h2>
           <p class="tagline">The dead are patient. They will wait.</p>
-          <button class="cta" id="resumeBtn"><span>Resume</span></button>
+          <div class="btn-row">
+            <button class="cta" id="resumeBtn"><span>Resume</span></button>
+            <button class="cta ghost" id="menuBtn"><span>Exit to menu</span></button>
+          </div>
         </div>
       </section>
 
@@ -71,7 +78,10 @@
             <div><span class="label">Best</span><strong id="overHigh">0</strong></div>
           </div>
           <p class="tagline" id="overMsg">They got you. They always do, eventually.</p>
-          <button class="cta" id="againBtn"><span>Rise again</span></button>
+          <div class="btn-row">
+            <button class="cta" id="againBtn"><span>Rise again</span></button>
+            <button class="cta ghost" id="overMenuBtn"><span>Main menu</span></button>
+          </div>
         </div>
       </section>
     </div>
