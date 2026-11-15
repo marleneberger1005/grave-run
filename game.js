@@ -37,6 +37,28 @@
   const DIR_BY_NAME = { up: UP, down: DOWN, left: LEFT, right: RIGHT };
 
   const MODE_SCHEDULE = [['roam', 7], ['hunt', 20], ['roam', 7], ['hunt', 20], ['roam', 5], ['hunt', Infinity]];
+  const GAME_MODES = {
+    classic: {
+      name: 'Classic', lives: 3, desc: 'Three lives. Clear the yard, night after night.',
+      icon: '<path d="M15 3a8 8 0 1 0 6 13A9 9 0 0 1 15 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    },
+    blackout: {
+      name: 'Blackout', lives: 3, desc: 'Your battery is dying. Shards trickle charge. Flares refill.',
+      icon: '<rect x="3" y="8" width="15" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M20 11v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="5.5" y="10.5" width="3.5" height="4" rx=".6" fill="currentColor"/>',
+    },
+    endless: {
+      name: 'Endless Horde', lives: 3, desc: 'Another corpse claws out of the crypt every 45 seconds.',
+      icon: '<path d="M7 8.5c-2 0-3.5 1.6-3.5 3.5S5 15.5 7 15.5c3.5 0 6.5-7 10-7 2 0 3.5 1.6 3.5 3.5S19 15.5 17 15.5c-3.5 0-6.5-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    },
+    nightmare: {
+      name: 'Nightmare', lives: 1, desc: 'One life. Faster dead. Half-length flares. No mercy.',
+      icon: '<path d="M12 3c-4.4 0-8 3.1-8 7.3 0 2.4 1.2 4.3 3 5.4V19h10v-3.3c1.8-1.1 3-3 3-5.4C20 6.1 16.4 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="9" cy="11" r="1.8" fill="currentColor"/><circle cx="15" cy="11" r="1.8" fill="currentColor"/><path d="M10.5 19v2M13.5 19v2" stroke="currentColor" stroke-width="1.6"/>',
+    },
+  };
+  const MODE_KEYS = Object.keys(GAME_MODES);
+  const NIGHTMARE_SCHEDULE = [['roam', 3], ['hunt', 30], ['roam', 3], ['hunt', Infinity]];
+  const HORDE_INTERVAL = 45, HORDE_MAX = 12;
+
   const BONUS_VALUES = [100, 300, 500, 700, 1000, 2000, 3000, 5000];
 
   const ZTYPES = [
@@ -565,8 +587,15 @@
   };
 
   // ------------------------------------------------------------------ state
+  let gameMode = store.get('graverun.mode', 'classic');
+  if (!GAME_MODES[gameMode]) gameMode = 'classic';
+  const highKey = m => 'graverun.high.' + m;
+  const loadHigh = m => store.get(highKey(m), m === 'classic' ? store.get('graverun.high', 0) : 0);
+  const sched = () => gameMode === 'nightmare' ? NIGHTMARE_SCHEDULE : MODE_SCHEDULE;
+
   const game = {
-    state: 'title', score: 0, high: store.get('graverun.high', 0), lives: 3, level: 1,
+    state: 'title', score: 0, high: loadHigh(gameMode), lives: 3, level: 1,
+    battery: 1, hordeExtra: 0, hordeTimer: HORDE_INTERVAL,
     pelletsLeft: 0, eaten: 0, modeIndex: 0, modeTimer: 0, mode: 'roam',
     frightTimer: 0, frightTotal: 0, combo: 0, stateTimer: 0, freeze: 0,
     shake: 0, flash: 0, extraGiven: false, bonus: null, time: 0,
@@ -575,14 +604,14 @@
   let player = null, zombies = [], particles = [], fogBlobs = [];
 
   const lvl = () => {
-    const L = game.level;
+    const L = game.level, nm = gameMode === 'nightmare';
     return {
       pSpeed: Math.min(8.8, 7.4 + 0.22 * (L - 1)),
-      zSpeed: Math.min(8.6, 6.5 + 0.3 * (L - 1)),
+      zSpeed: Math.min(nm ? 9.4 : 8.6, (6.5 + 0.3 * (L - 1)) * (nm ? 1.15 : 1)),
       frightSpeed: 3.9,
-      frightTime: Math.max(1.6, 7 - 0.6 * (L - 1)),
+      frightTime: Math.max(1.2, 7 - 0.6 * (L - 1)) * (nm ? 0.5 : 1),
       tunnelSpeed: 3.6,
-      release: Math.max(0.3, 1 - 0.14 * (L - 1)),
+      release: Math.max(0.3, 1 - 0.14 * (L - 1)) * (nm ? 0.5 : 1),
     };
   };
 
@@ -601,12 +630,32 @@
         scared: false, reverse: false, walk: Math.random() * 10, hunterTarget: null, hunterTimer: 0,
       };
     });
-    game.modeIndex = 0; game.mode = MODE_SCHEDULE[0][0]; game.modeTimer = MODE_SCHEDULE[0][1];
+    for (let k = 0; k < game.hordeExtra; k++) zombies.push(makeExtraZombie(k, 'house', (4 + k * 2.5) * L.release));
+    game.battery = 1;
+    game.modeIndex = 0; game.mode = sched()[0][0]; game.modeTimer = sched()[0][1];
     game.frightTimer = 0; game.combo = 0; game.bonus = null; game.freeze = 0;
   }
 
+  function makeExtraZombie(k, state, release) {
+    const ti = k % ZTYPES.length, s = state === 'house' ? houseSpots[k % houseSpots.length] : HOUSE_CENTER;
+    return {
+      i: ti, type: ZTYPES[ti], extra: true, x: s.x, y: s.y, tx: s.x, ty: s.y, dir: UP, face: -Math.PI / 2,
+      state, release, scared: false, reverse: false, walk: Math.random() * 10,
+    };
+  }
+  function spawnHorde() {
+    if (zombies.length >= HORDE_MAX) return;
+    const z = makeExtraZombie(game.hordeExtra++, 'leaving', 0);
+    zombies.push(z);
+    Music.stingCd = 0; Music.sting(); Sound.groan(0, 0.18);
+    popup(HOUSE_CENTER.x, HOUSE_CENTER.y - 1.5, 'THE HORDE GROWS', '#e2232e');
+    game.shake = Math.max(game.shake, 6);
+    burst((HOUSE_CENTER.x + .5) * T, (HOUSE_CENTER.y + .5) * T, 30, ['#3a2a1a', '#5a4630', '#1e1610'], 140, 0.9, 2.6);
+  }
+
   function newGame() {
-    game.score = 0; game.lives = 3; game.level = 1; game.extraGiven = false;
+    game.score = 0; game.lives = GAME_MODES[gameMode].lives; game.level = 1; game.extraGiven = false;
+    game.high = loadHigh(gameMode); game.hordeExtra = 0; game.hordeTimer = HORDE_INTERVAL;
     startLevel();
     Sound.start();
   }
@@ -616,7 +665,7 @@
     particles = [];
     resetActors();
     setState('ready', 2.2);
-    game.banner = { title: `Night ${game.level}`, sub: game.level === 1 ? 'Survive until dawn' : 'They are getting faster' };
+    game.banner = { title: `Night ${game.level}`, sub: game.level === 1 ? `${GAME_MODES[gameMode].name} · Survive until dawn` : 'They are getting faster' };
     updateHud();
   }
   function setState(s, t = 0) { game.state = s; game.stateTimer = t; }
@@ -710,7 +759,7 @@
     if (Math.round(z.y) === TUNNEL_ROW && (z.x < 4 || z.x > COLS - 5)) return L.tunnelSpeed;
     if (z.scared) return L.frightSpeed;
     let s = L.zSpeed;
-    if (z.i === 0 && game.pelletsLeft < 30) s *= 1.08;
+    if (z.i === 0 && !z.extra && game.pelletsLeft < 30) s *= 1.08;
     if (z.i === 2) s *= 0.96;
     return s;
   }
@@ -718,8 +767,8 @@
   // ------------------------------------------------------------------ gameplay
   function addScore(n) {
     game.score += n;
-    if (!game.extraGiven && game.score >= 10000) { game.extraGiven = true; game.lives++; Sound.life(); popup(player.x, player.y - 1, '+1 LIFE', '#ff4d5a'); }
-    if (game.score > game.high) { game.high = game.score; store.set('graverun.high', game.high); }
+    if (!game.extraGiven && gameMode !== 'nightmare' && game.score >= 10000) { game.extraGiven = true; game.lives++; Sound.life(); popup(player.x, player.y - 1, '+1 LIFE', '#ff4d5a'); }
+    if (game.score > game.high) { game.high = game.score; store.set(highKey(gameMode), game.high); }
     updateHud();
   }
 
@@ -730,9 +779,11 @@
     pellets[r][c] = 0; game.pelletsLeft--; game.eaten++;
     if (p === 1) {
       addScore(10); Sound.pickup(game.eaten % 2);
+      game.battery = Math.min(1, game.battery + 0.012);
       burst((c + .5) * T, (r + .5) * T, 4, ['#cfe9a8', '#8fd16a'], 40, 0.35, 1.4);
     } else {
       addScore(50); igniteFlare(c, r);
+      if (gameMode === 'blackout' && game.battery < 1) { game.battery = 1; popup(c, r - 1, 'RECHARGED', '#ffe08a'); }
     }
     if (game.eaten === 70 || game.eaten === 150) game.bonus = { x: BONUS_TILE.x, y: BONUS_TILE.y, t: 9.5 };
     if (game.pelletsLeft <= 0) { setState('clear', 2.6); Sound.clear(); game.banner = { title: 'Dawn breaks', sub: `Night ${game.level} survived` }; }
@@ -815,13 +866,17 @@
       if (game.frightTimer <= 0) { game.frightTimer = 0; for (const z of zombies) z.scared = false; }
     } else {
       game.modeTimer -= dt;
-      if (game.modeTimer <= 0 && game.modeIndex < MODE_SCHEDULE.length - 1) {
+      if (game.modeTimer <= 0 && game.modeIndex < sched().length - 1) {
         game.modeIndex++;
-        [game.mode, game.modeTimer] = MODE_SCHEDULE[game.modeIndex];
+        [game.mode, game.modeTimer] = sched()[game.modeIndex];
         for (const z of zombies) if (z.state === 'active') z.reverse = true;
         if (game.mode === 'hunt') { Sound.groan(0, 0.1); Music.sting(true); }
       }
     }
+
+    // mode rules
+    if (gameMode === 'blackout') game.battery = Math.max(0, game.battery - dt * (game.frightTimer > 0 ? 0 : 0.021));
+    if (gameMode === 'endless') { game.hordeTimer -= dt; if (game.hordeTimer <= 0) { game.hordeTimer = HORDE_INTERVAL; spawnHorde(); } }
 
     // player
     const p = player, L = lvl();
@@ -877,6 +932,9 @@
     if (s === 'dying') return 1;
     const progress = game.pelletTotal ? 1 - game.pelletsLeft / game.pelletTotal : 0;
     let t = 0.12 + progress * 0.4 + Math.min(game.level - 1, 5) * 0.05 + (game.dread || 0) * 0.5 + (game.mode === 'hunt' ? 0.08 : 0);
+    if (gameMode === 'blackout') t += (1 - game.battery) * 0.3;
+    if (gameMode === 'endless') t += game.hordeExtra * 0.03;
+    if (gameMode === 'nightmare') t += 0.12;
     if (game.frightTimer > 0) t = t * 0.5 + 0.25; // a breath of courage while the flare burns
     return clamp(t, 0, 1);
   }
@@ -886,6 +944,8 @@
     document.getElementById('overScore').textContent = game.score.toLocaleString();
     document.getElementById('overHigh').textContent = game.high.toLocaleString();
     document.getElementById('overNight').textContent = game.level;
+    document.getElementById('overMode').textContent = GAME_MODES[gameMode].name;
+    renderModes();
     const msgs = ['They got you. They always do, eventually.', 'Your flashlight rolls into the dark, still on.', 'Ashgrove claims another soul.', 'One more shambler joins the horde.'];
     document.getElementById('overMsg').textContent = game.score >= game.high && game.score > 0 ? 'A new record. The dead will remember your name.' : msgs[Math.floor(Math.random() * msgs.length)];
     showScreen('overScreen');
@@ -1025,7 +1085,8 @@
     d.clearRect(0, 0, W, H);
     const playing = game.state !== 'title';
     const fr = game.frightTimer > 0;
-    const amb = !playing ? 0.62 : fr ? 0.74 : game.state === 'clear' ? lerp(0.9, 0.3, 1 - game.stateTimer / 2.6) : 0.91;
+    const baseAmb = gameMode === 'blackout' ? 0.95 : gameMode === 'nightmare' ? 0.93 : 0.91;
+    const amb = !playing ? 0.62 : fr ? 0.74 : game.state === 'clear' ? lerp(baseAmb, 0.3, 1 - game.stateTimer / 2.6) : baseAmb;
     d.fillStyle = `rgba(2,4,3,${amb})`;
     d.fillRect(0, 0, W, H);
     d.globalCompositeOperation = 'destination-out';
@@ -1036,7 +1097,10 @@
       let flick = 1 + Math.sin(t * 13) * .015 + Math.sin(t * 31) * .01;
       if (Math.sin(t * 0.7) > .985) flick *= .55 + Math.random() * .3; // the battery is dying...
       if (game.state === 'dying') flick *= Math.max(0, game.stateTimer / 2.1);
-      const R = (fr ? 7.5 : 4.4) * flick;
+      const bat = gameMode === 'blackout' ? game.battery : 1;
+      if (gameMode === 'blackout' && bat < 0.3 && Math.random() < (0.3 - bat) * 0.6) flick *= rand(0.2, 0.7); // sputtering
+      const baseR = gameMode === 'nightmare' ? 3.8 : lerp(1.3, 4.4, bat);
+      const R = (fr ? 7.5 : baseR) * flick;
       const poly = visibilityPolygon(px, py, Math.max(R, 9.5));
       d.save();
       d.beginPath(); poly.forEach(([x, y], i) => (i ? d.lineTo(x, y) : d.moveTo(x, y))); d.closePath(); d.clip();
@@ -1044,7 +1108,7 @@
       gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(.5, 'rgba(0,0,0,.8)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       d.fillStyle = gr; d.fillRect(0, 0, W, H);
       // flashlight cone
-      const a = player.face, len = 9.5 * T * flick, spread = .44;
+      const a = player.face, len = (fr ? 9.5 : lerp(2, gameMode === 'nightmare' ? 8 : 9.5, bat)) * T * flick, spread = .44;
       gr = d.createRadialGradient(px, py, T * .4, px, py, len);
       gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(.55, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       d.fillStyle = gr;
@@ -1252,6 +1316,34 @@
       $('lives').innerHTML = '<i></i>'.repeat(clamp(game.lives, 0, 6));
     }
   }
+  function updateBattery() {
+    const on = gameMode === 'blackout' && game.state !== 'title' && game.state !== 'over';
+    $('battery').classList.toggle('on', on);
+    if (!on) return;
+    $('batteryFill').style.transform = `scaleX(${game.battery})`;
+    setText('batteryPct', Math.ceil(game.battery * 100) + '%');
+    $('battery').classList.toggle('low', game.battery < 0.25);
+  }
+  function renderModes() {
+    const wrap = $('modes');
+    wrap.innerHTML = '';
+    MODE_KEYS.forEach((k, idx) => {
+      const m = GAME_MODES[k], b = document.createElement('button');
+      b.className = 'mode'; b.type = 'button';
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(k === gameMode));
+      const best = loadHigh(k);
+      b.innerHTML = `<svg viewBox="0 0 24 24">${m.icon}</svg><strong>${m.name}</strong><span>${m.desc}</span><em>${best ? 'Best ' + best.toLocaleString() : 'Untouched'} · ${idx + 1}</em>`;
+      b.addEventListener('click', () => selectMode(k));
+      wrap.appendChild(b);
+    });
+  }
+  function selectMode(k) {
+    if (!GAME_MODES[k] || game.state !== 'title') return;
+    gameMode = k; store.set('graverun.mode', k);
+    game.high = loadHigh(k); updateHud();
+    renderModes();
+    Sound.pickup(true);
+  }
   function updateFlareMeter() {
     const on = game.frightTimer > 0 && game.state === 'play';
     $('flareMeter').classList.toggle('on', on);
@@ -1277,6 +1369,7 @@
       card.appendChild(cv);
       const n = document.createElement('strong'); n.textContent = t.name; n.style.color = t.shirt === '#4a3466' ? '#a68bd0' : t.shirt === '#355a3c' ? '#8fd16a' : t.shirt === '#86521f' ? '#e19a52' : '#e2232e';
       const d = document.createElement('span'); d.textContent = t.desc;
+      card.title = t.desc;
       card.append(n, d);
       wrap.appendChild(card);
     }
@@ -1299,6 +1392,7 @@
   }
   function exitToMenu() {
     if (game.state === 'title') return;
+    game.hordeExtra = 0;
     parseMap();
     decalList = []; redrawDecals();
     particles = [];
@@ -1307,6 +1401,8 @@
     zombies.forEach(z => { if (z.state === 'house') z.state = 'leaving'; });
     game.banner = null; game.flash = 0; game.shake = 0; game.dread = 0;
     setState('title');
+    game.high = loadHigh(gameMode); updateHud();
+    renderModes();
     showScreen('titleScreen');
   }
   function togglePause() {
@@ -1319,6 +1415,7 @@
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     if (e.key === 'm' || e.key === 'M') toggleMute();
     if (e.key === 'q' || e.key === 'Q') exitToMenu();
+    if (game.state === 'title' && e.key >= '1' && e.key <= '4') selectMode(MODE_KEYS[+e.key - 1]);
     if ((e.key === 'Enter' || e.key === ' ') && (game.state === 'title' || game.state === 'over')) { e.preventDefault(); startGame(); }
   });
   function toggleMute() { Sound.init(); Sound.setMuted(!Sound.muted); $('muteBtn').classList.toggle('muted', Sound.muted); }
@@ -1361,6 +1458,7 @@
     Music.update(dt, musicTension(), game.state === 'paused' ? 0.2 : 1);
     render();
     updateFlareMeter();
+    updateBattery();
     requestAnimationFrame(frame);
   }
 
@@ -1372,6 +1470,7 @@
     for (let i = 0; i < 9; i++) fogBlobs.push({ x: rand(0, W), y: rand(0, H), r: rand(90, 200), vx: rand(-12, 12), a: rand(.03, .07) });
     sizeCanvases();
     buildBestiary();
+    renderModes();
     $('exitBtn').classList.add('hidden');
     updateHud();
     let resizeT;

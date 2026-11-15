@@ -45,12 +45,19 @@
       <canvas id="game" aria-label="Grave Run game board"></canvas>
       <div class="vignette" aria-hidden="true"></div>
       <div class="flare-meter" id="flareMeter" aria-hidden="true"><div id="flareFill"></div></div>
+      <div class="battery" id="battery" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M9 2h6v3h-6zM7 5h10l-1 4v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        <div class="battery-bar"><div id="batteryFill"></div></div>
+        <span id="batteryPct">100%</span>
+      </div>
 
       <section class="screen" id="titleScreen">
         <div class="screen-inner">
           <p class="eyebrow">A survival maze for one</p>
           <h1 class="logo" data-text="Grave Run">Grave Run</h1>
           <p class="tagline">Night has fallen over Ashgrove Cemetery. Gather every soul shard, light the flares, and do not let them touch you.</p>
+          <p class="section-label">Choose your night <span class="hint">· press 1–4</span></p>
+          <div class="modes" id="modes" role="radiogroup" aria-label="Game mode"></div>
           <p class="section-label">Know your enemy — they all hunt you at once</p>
           <div class="bestiary" id="bestiary"></div>
           <button class="cta" id="startBtn"><span>Enter the graveyard</span></button>
@@ -71,7 +78,7 @@
 
       <section class="screen hidden" id="overScreen">
         <div class="screen-inner">
-          <p class="eyebrow">Night <span id="overNight">1</span></p>
+          <p class="eyebrow"><span id="overMode">Classic</span> · Night <span id="overNight">1</span></p>
           <h2 class="logo" data-text="Devoured">Devoured</h2>
           <div class="final">
             <div><span class="label">Score</span><strong id="overScore">0</strong></div>
