@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grave Run</title>
+  <meta name="description" content="Grave Run — a zombie maze-chase survival game for the browser. Collect every soul shard, light flares, and outrun the dead.">
+  <meta name="theme-color" content="#050706">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070a08'/%3E%3Cpath d='M32 10c-11 0-19 8-19 18 0 6 3 10 7 13v8h24v-8c4-3 7-7 7-13 0-10-8-18-19-18z' fill='%23d9d2bf'/%3E%3Ccircle cx='24' cy='29' r='5' fill='%23b3121b'/%3E%3Ccircle cx='40' cy='29' r='5' fill='%23b3121b'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"><div class="moon"></div></div>
+  <div class="fog fog-a" aria-hidden="true"></div>
+  <div class="fog fog-b" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">Grave<span>Run</span></div>
+    <div class="hud">
+      <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
+      <div class="stat"><span class="label">Best</span><span class="value" id="high">0</span></div>
+      <div class="stat"><span class="label">Night</span><span class="value" id="level">1</span></div>
+      <div class="stat"><span class="label">Lives</span><span class="value lives" id="lives"></span></div>
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="muteBtn" aria-label="Toggle sound" title="Sound (M)">
+        <svg class="ico-on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="ico-off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn" id="pauseBtn" aria-label="Pause" title="Pause (P)">
+        <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage-wrap">
+    <div class="stage" id="stage">
+      <canvas id="game" aria-label="Grave Run game board"></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="flare-meter" id="flareMeter" aria-hidden="true"><div id="flareFill"></div></div>
+
+      <section class="screen" id="titleScreen">
+        <div class="screen-inner">
+          <p class="eyebrow">A survival maze for one</p>
+          <h1 class="logo" data-text="Grave Run">Grave Run</h1>
+          <p class="tagline">Night has fallen over Ashgrove Cemetery. Gather every soul shard, light the flares, and do not let them touch you.</p>
+          <div class="bestiary" id="bestiary"></div>
+          <button class="cta" id="startBtn"><span>Enter the graveyard</span></button>
+          <p class="controls"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>WASD</kbd> move · <kbd>P</kbd> pause · <kbd>M</kbd> mute · swipe on mobile</p>
+        </div>
+      </section>
+
+      <section class="screen hidden" id="pauseScreen">
+        <div class="screen-inner">
+          <h2 class="logo small" data-text="Paused">Paused</h2>
+          <p class="tagline">The dead are patient. They will wait.</p>
+          <button class="cta" id="resumeBtn"><span>Resume</span></button>
+        </div>
+      </section>
+
+      <section class="screen hidden" id="overScreen">
+        <div class="screen-inner">
+          <p class="eyebrow">Night <span id="overNight">1</span></p>
+          <h2 class="logo" data-text="Devoured">Devoured</h2>
+          <div class="final">
+            <div><span class="label">Score</span><strong id="overScore">0</strong></div>
+            <div><span class="label">Best</span><strong id="overHigh">0</strong></div>
+          </div>
+          <p class="tagline" id="overMsg">They got you. They always do, eventually.</p>
+          <button class="cta" id="againBtn"><span>Rise again</span></button>
+        </div>
+      </section>
+    </div>
+
+    <div class="dpad" id="dpad" aria-label="Touch controls">
+      <button data-dir="up" aria-label="Up">▲</button>
+      <button data-dir="left" aria-label="Left">◀</button>
+      <button data-dir="down" aria-label="Down">▼</button>
+      <button data-dir="right" aria-label="Right">▶</button>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span>Grave Run · an original zombie maze-chase</span>
+    <a href="https://github.com/marleneberger1005/grave-run" target="_blank" rel="noopener" class="gh">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View on GitHub
+    </a>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
